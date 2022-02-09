@@ -20,7 +20,7 @@ int queue_size(queue_t *queue)
 
 int queue_append(queue_t **queue, queue_t *elem)
 {
-    if (elem == NULL || elem->prev != NULL || elem->next != NULL)
+    if (queue == NULL || elem == NULL || elem->prev != NULL || elem->next != NULL)
         return -1;
 
     if (*queue == NULL)
@@ -36,12 +36,22 @@ int queue_append(queue_t **queue, queue_t *elem)
         (*queue)->prev->next = elem;
         (*queue)->prev = elem;
     }
-
     return 0;
 }
 
 void queue_print(char *name, queue_t *queue, void print_elem(void *))
 {
+    int tam = queue_size(queue);
+    printf("%s: [", name);
+
+    for (int i = 0; i < tam; i++)
+    {
+        print_elem(queue);
+        queue = queue->next;
+        (i < tam-1) ? printf(" "): i ;
+    }
+    printf("]\n");
+    
 }
 
 int queue_remove(queue_t **queue, queue_t *elem)
@@ -51,7 +61,7 @@ int queue_remove(queue_t **queue, queue_t *elem)
 
     queue_t *first = (*queue);
 
-    if (queue_size(*queue) == 1)
+    if (queue_size(*queue) == 1 && (*queue) == (elem))
     {
         (*queue)->prev = NULL;
         (*queue)->next = NULL;
@@ -69,7 +79,9 @@ int queue_remove(queue_t **queue, queue_t *elem)
                 if ((*queue) == first)
                 {
                     (*queue) = (*queue)->next;
-                } else {
+                }
+                else
+                {
                     (*queue) = (first);
                 }
 
