@@ -48,10 +48,9 @@ void queue_print(char *name, queue_t *queue, void print_elem(void *))
     {
         print_elem(queue);
         queue = queue->next;
-        (i < tam-1) ? printf(" "): i ;
+        (i < tam - 1) ? printf(" ") : i;
     }
     printf("]\n");
-    
 }
 
 int queue_remove(queue_t **queue, queue_t *elem)
