@@ -126,5 +126,9 @@ int queue_remove(queue_t **queue, queue_t *elem)
             }
         } while ((*queue) != first);
     }
-    return 0;
+
+    // O elemento não pertencia a aquela fila
+    perror("Elemento não pertencia a fila indicada");
+    return -3;
+
 }
