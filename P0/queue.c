@@ -6,9 +6,11 @@ int queue_size(queue_t *queue)
     int tamanho;
     queue_t *primeiro = queue;
 
+    // Retorno 0 caso a lista esteja vazia
     if (queue == NULL)
         return 0;
 
+    // Caminha pela lista até encontrar o mesmo elemento
     tamanho = 1;
     while (queue->next != primeiro)
     {
@@ -20,10 +22,25 @@ int queue_size(queue_t *queue)
 
 int queue_append(queue_t **queue, queue_t *elem)
 {
-    if (queue == NULL || elem == NULL || elem->prev != NULL || elem->next != NULL)
+    if (queue == NULL)
+    {
+        perror("Fila Inexistente");
         return -1;
+    }
 
-    if (*queue == NULL)
+    if (elem == NULL)
+    {
+        perror("Elemento Inexistente");
+        return -2;
+    }
+
+    if (elem->prev != NULL || elem->next != NULL)
+    {
+        perror("Elemento já existe em outra fila");
+        return -3;
+    }
+
+    if (*queue == NULL) // Caso a fila não possua nenhum elemento
     {
         (*queue) = elem;
         (*queue)->prev = elem;
@@ -41,22 +58,37 @@ int queue_append(queue_t **queue, queue_t *elem)
 
 void queue_print(char *name, queue_t *queue, void print_elem(void *))
 {
-    int tam = queue_size(queue);
+    int tamanho = queue_size(queue);
     printf("%s: [", name);
 
-    for (int i = 0; i < tam; i++)
+    for (int i = 0; i < tamanho; i++)
     {
-        print_elem(queue);
+        print_elem((void *)queue);
         queue = queue->next;
-        (i < tam - 1) ? printf(" ") : i;
+        (i < tamanho - 1) ? printf(" ") : i;
     }
     printf("]\n");
 }
 
 int queue_remove(queue_t **queue, queue_t *elem)
 {
-    if (elem == NULL)
+    if (queue == NULL)
+    {
+        perror("Fila Inexistente");
         return -1;
+    }
+
+    if (elem == NULL)
+    {
+        perror("Elemento Inexistente");
+        return -2;
+    }
+
+    if (elem->next == NULL || elem->prev == NULL)
+    {
+        perror("Elemento não pertence a nenhuma fila");
+        return -3;
+    }
 
     queue_t *first = (*queue);
 
