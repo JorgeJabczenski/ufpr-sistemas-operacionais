@@ -1,3 +1,5 @@
+// GRR20190372 Jorge Lucas Vicilli Jabczenski
+
 #include "queue.h"
 #include <stdio.h>
 
@@ -24,19 +26,19 @@ int queue_append(queue_t **queue, queue_t *elem)
 {
     if (queue == NULL)
     {
-        perror("Fila Inexistente");
+        fprintf(stderr,"Fila Inexistente\n");
         return -1;
     }
 
     if (elem == NULL)
     {
-        perror("Elemento Inexistente");
+        fprintf(stderr,"Elemento Inexistente\n");
         return -2;
     }
 
     if (elem->prev != NULL || elem->next != NULL)
     {
-        perror("Elemento já existe em outra fila");
+        fprintf(stderr,"Elemento já existe em outra fila\n");
         return -3;
     }
 
@@ -74,19 +76,19 @@ int queue_remove(queue_t **queue, queue_t *elem)
 {
     if (queue == NULL)
     {
-        perror("Fila Inexistente");
+        fprintf(stderr,"Fila Inexistente\n");
         return -1;
     }
 
     if (elem == NULL)
     {
-        perror("Elemento Inexistente");
+        fprintf(stderr,"Elemento Inexistente\n");
         return -2;
     }
 
     if (elem->next == NULL || elem->prev == NULL)
     {
-        perror("Elemento não pertence a nenhuma fila");
+        fprintf(stderr,"Elemento não pertence a nenhuma fila\n");
         return -3;
     }
 
@@ -125,10 +127,10 @@ int queue_remove(queue_t **queue, queue_t *elem)
                 (*queue) = (*queue)->next;
             }
         } while ((*queue) != first);
+
+        // O elemento não pertencia a aquela fila
+        fprintf(stderr,"Elemento não pertencia a fila indicada\n");
+        return -3;
     }
-
-    // O elemento não pertencia a aquela fila
-    perror("Elemento não pertencia a fila indicada");
-    return -3;
-
+    return 0;
 }
