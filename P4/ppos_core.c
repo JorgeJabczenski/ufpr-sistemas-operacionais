@@ -34,11 +34,62 @@ void *safeMalloc(int size)
 }
 //______________________________________________________________
 
+void aumentarPrioridadeDinamica(task_t *task)
+{
+    task->prioridadeDinamica += AGING;
+    if (task->prioridadeDinamica < PRIORIDADE_MAXIMA)
+    {
+        task->prioridadeDinamica = PRIORIDADE_MAXIMA;
+    }
+}
+
+void task_setprio(task_t *task, int prio)
+{
+    // Normalizando o valor da prioridade;
+    if (prio < -20)
+        prio = -20;
+    else if (prio > 20)
+        prio = 20;
+
+    task->prioridadeEstatica = prio;
+    task->prioridadeDinamica = prio;
+}
+
+int task_getprio(task_t *task)
+{
+    if (task == NULL)
+    {
+        return taskAtual->prioridadeEstatica;
+    }
+    return task->prioridadeEstatica;
+}
+
 task_t *scheduler()
 {
     debugPrint("inicio sched\n");
 
     task_t *proxTask = filaTasks;
+    task_t *primeiraTask = filaTasks;
+
+    filaTasks = filaTasks->next;
+    while (primeiraTask != filaTasks)
+    {
+        if (filaTasks->prioridadeDinamica <= proxTask->prioridadeDinamica)
+        {
+            aumentarPrioridadeDinamica(proxTask);
+            proxTask = filaTasks;
+        }
+        else
+        {
+            aumentarPrioridadeDinamica(filaTasks);
+        }
+
+        filaTasks = filaTasks->next;
+    }
+
+    // Retorna a prioridade dinamica da task escolhida para a original
+    proxTask->prioridadeDinamica = proxTask->prioridadeEstatica;
+
     queue_remove((queue_t **)&filaTasks, (queue_t *)proxTask);
 
     debugPrint("fim sched\n");
@@ -48,15 +99,18 @@ task_t *scheduler()
 void dispatcherBody()
 {
     debugPrint("inicio dispatcher\n");
+
     while (queue_size((queue_t *)filaTasks) > 0)
     {
         task_t *proximaTask = scheduler();
         if (proximaTask != NULL)
         {
             task_switch(proximaTask);
-            if (proximaTask->status != TERMINADA)
+            switch (proximaTask->status)
             {
+            case PRONTA:
                 queue_append((queue_t **)&filaTasks, (queue_t *)proximaTask);
+                break;
             }
         }
     }
@@ -120,6 +174,8 @@ int task_create(task_t *task, void (*start_routine)(void *), void *arg)
     task->prev = NULL;
     task->next = NULL;
     task->status = PRONTA;
+    task->prioridadeEstatica = 0;
+    task->prioridadeDinamica = 0;
 
 #ifdef DEBUG
     printf("task_create: %d\n", task->id);
@@ -153,7 +209,8 @@ void task_exit(int exit_code)
         task_switch(mainTask);
     }
     else
-    {   taskAtual->status = TERMINADA;
+    {
+        taskAtual->status = TERMINADA;
         task_t *taskAux = taskAtual;
         task_switch(dispatcher);
         free(taskAux->context.uc_stack.ss_sp);
