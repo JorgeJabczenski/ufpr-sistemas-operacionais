@@ -46,13 +46,21 @@ void aumentarPrioridadeDinamica(task_t *task)
 void task_setprio(task_t *task, int prio)
 {
     // Normalizando o valor da prioridade;
-    if (prio < -20)
-        prio = -20;
-    else if (prio > 20)
-        prio = 20;
+    if (prio < PRIORIDADE_MAXIMA)
+        prio = PRIORIDADE_MAXIMA;
+    else if (prio > PRIORIDADE_MINIMA)
+        prio = PRIORIDADE_MINIMA;
 
-    task->prioridadeEstatica = prio;
-    task->prioridadeDinamica = prio;
+    if (task == NULL)
+    {
+        taskAtual->prioridadeEstatica = prio;
+        taskAtual->prioridadeDinamica = prio;
+    }
+    else
+    {
+        task->prioridadeEstatica = prio;
+        task->prioridadeDinamica = prio;
+    }
 }
 
 int task_getprio(task_t *task)
@@ -76,6 +84,7 @@ task_t *scheduler()
     {
         if (filaTasks->prioridadeDinamica <= proxTask->prioridadeDinamica)
         {
+            // Caso a tarefa nao seja escolhida, aumenta sua prioridade e salva a nova task escolhida
             aumentarPrioridadeDinamica(proxTask);
             proxTask = filaTasks;
         }
@@ -110,6 +119,9 @@ void dispatcherBody()
             {
             case PRONTA:
                 queue_append((queue_t **)&filaTasks, (queue_t *)proximaTask);
+                break;
+            case TERMINADA:
+                free(proximaTask->context.uc_stack.ss_sp);
                 break;
             }
         }
@@ -211,9 +223,7 @@ void task_exit(int exit_code)
     else
     {
         taskAtual->status = TERMINADA;
-        task_t *taskAux = taskAtual;
         task_switch(dispatcher);
-        free(taskAux->context.uc_stack.ss_sp);
     }
 }
 
