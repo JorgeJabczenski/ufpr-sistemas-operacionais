@@ -17,6 +17,17 @@
 #define PRIORIDADE_MINIMA  20
 #define PRIORIDADE_MAXIMA -20
 
+#define PRIMEIRO_DISPARO_US 1000   // primeiro disparo, em micro-segundos
+#define PRIMEIRO_DISPARO_S     0   // primeiro disparo, em segundos
+#define DISPARO_US          1000   // disparos subsequentes, em micro-segundos
+#define DISPARO_S              0   // disparos subsequentes, em segundos
+
+#define QTD_TICKS  20
+
+#define SIM 1
+#define NAO 0
+
+
 // Estrutura que define um Task Control Block (TCB)
 typedef struct task_t
 {
@@ -27,6 +38,8 @@ typedef struct task_t
   short preemptable ;			        // pode ser preemptada?
   int prioridadeEstatica;         // prioridade da task
   int prioridadeDinamica;         // prioridade da task
+  int quantidadeTicks;            // quantidade de ciclos que uma tarefa tem
+  int tarefaUsuario;              // flag para indicar se é uma tarefa de usuario
    // ... (outros campos serão adicionados mais tarde)
 } task_t ;
 

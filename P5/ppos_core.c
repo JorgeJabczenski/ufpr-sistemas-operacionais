@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ucontext.h>
+#include <signal.h>
+#include <sys/time.h>
+#include <string.h>
 
 #include "ppos.h"
 #include "ppos_data.h"
@@ -13,6 +16,12 @@ task_t *taskAtual;
 task_t *dispatcher;
 
 task_t *filaTasks;
+
+// estrutura que define um tratador de sinal (deve ser global ou static)
+struct sigaction action;
+
+// estrutura de inicialização to timer
+struct itimerval timer;
 
 //-------------------------------------------------------------------------
 void debugPrint(char *msg)
@@ -77,31 +86,32 @@ task_t *scheduler()
     debugPrint("inicio sched\n");
 
     task_t *proxTask = filaTasks;
-    task_t *primeiraTask = filaTasks;
+    // task_t *primeiraTask = filaTasks;
 
-    filaTasks = filaTasks->next;
-    while (primeiraTask != filaTasks)
-    {
-        if (filaTasks->prioridadeDinamica <= proxTask->prioridadeDinamica)
-        {
-            // Caso a tarefa nao seja escolhida, aumenta sua prioridade e salva a nova task escolhida
-            aumentarPrioridadeDinamica(proxTask);
-            proxTask = filaTasks;
-        }
-        else
-        {
-            aumentarPrioridadeDinamica(filaTasks);
-        }
+    // filaTasks = filaTasks->next;
+    // while (primeiraTask != filaTasks)
+    // {
+    //     if (filaTasks->prioridadeDinamica < proxTask->prioridadeDinamica)
+    //     {
+    //         // Caso a tarefa nao seja escolhida, aumenta sua prioridade e salva a nova task escolhida
+    //         aumentarPrioridadeDinamica(proxTask);
+    //         proxTask = filaTasks;
+    //     }
+    //     else
+    //     {
+    //         aumentarPrioridadeDinamica(filaTasks);
+    //     }
 
-        filaTasks = filaTasks->next;
-    }
+    //     filaTasks = filaTasks->next;
+    // }
 
-    // Retorna a prioridade dinamica da task escolhida para a original
-    proxTask->prioridadeDinamica = proxTask->prioridadeEstatica;
+    // // Retorna a prioridade dinamica da task escolhida para a original
+    // proxTask->prioridadeDinamica = proxTask->prioridadeEstatica;
 
     queue_remove((queue_t **)&filaTasks, (queue_t *)proxTask);
 
-    debugPrint("fim sched\n");
+    // debugPrint("fim sched\n");
+    proxTask->quantidadeTicks = QTD_TICKS;
     return proxTask;
 }
 
@@ -137,6 +147,48 @@ void task_yield()
 }
 
 //-------------------------------------------------------------------------
+
+// tratador do sinal
+void tratador(int signum)
+{
+    debugPrint("tratando sinal\n");
+    // printf("Recebi o sinal %d\n", signum);
+    if (taskAtual->tarefaUsuario == SIM)
+    {
+        taskAtual->quantidadeTicks--;
+        if (taskAtual->quantidadeTicks == 0)
+        {
+            task_yield();
+        }
+    }
+}
+
+void configuraTimer()
+{
+    action.sa_handler = tratador;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
+    if (sigaction(SIGALRM, &action, 0) < 0)
+    {
+        perror("Erro em sigaction: ");
+        exit(1);
+    }
+
+    // ajusta valores do temporizador
+    timer.it_value.tv_usec = PRIMEIRO_DISPARO_US; // primeiro disparo, em micro-segundos
+    timer.it_value.tv_sec = PRIMEIRO_DISPARO_S;   // primeiro disparo, em segundos
+    timer.it_interval.tv_usec = DISPARO_US;       // disparos subsequentes, em micro-segundos
+    timer.it_interval.tv_sec = DISPARO_S;         // disparos subsequentes, em segundos
+
+    // arma o temporizador ITIMER_REAL (vide man setitimer)
+    if (setitimer(ITIMER_REAL, &timer, 0) < 0)
+    {
+        perror("Erro em setitimer: ");
+        exit(1);
+    }
+}
+
+//-------------------------------------------------------------------------
 void ppos_init()
 {
     /* desativa o buffer da saida padrao (stdout), usado pela função printf */
@@ -159,10 +211,15 @@ void ppos_init()
     mainTask->prev = NULL;
     mainTask->next = NULL;
 
+    mainTask->quantidadeTicks = QTD_TICKS;
+
     taskAtual = mainTask;
 
     task_create(dispatcher, (void *)dispatcherBody, "Dispatcher");
     queue_remove((queue_t **)&filaTasks, (queue_t *)dispatcher);
+
+    // Configura o timer de 1ms
+    configuraTimer();
 
     debugPrint("Fim ppos_init\n");
 }
@@ -188,6 +245,22 @@ int task_create(task_t *task, void (*start_routine)(void *), void *arg)
     task->status = PRONTA;
     task->prioridadeEstatica = 0;
     task->prioridadeDinamica = 0;
+    task->quantidadeTicks = QTD_TICKS;
+
+    // if (!strcmp(arg, "Dispatcher")){
+    //     task->tarefaUsuario = NAO;
+    // } else {
+    //     task->tarefaUsuario = SIM;
+    // }
+
+    if (task == dispatcher)
+    {
+        task->tarefaUsuario = NAO;
+    }
+    else
+    {
+        task->tarefaUsuario = SIM;
+    }
 
 #ifdef DEBUG
     printf("task_create: %d\n", task->id);
