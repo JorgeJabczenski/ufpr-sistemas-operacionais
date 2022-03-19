@@ -40,6 +40,12 @@ typedef struct task_t
   int prioridadeDinamica;         // prioridade da task
   int quantidadeTicks;            // quantidade de ciclos que uma tarefa tem
   int tarefaUsuario;              // flag para indicar se é uma tarefa de usuario
+  unsigned int tempoInicial;
+  unsigned int tempoFinal;
+  unsigned long tempoDeProcessador;
+  unsigned long tempoExecucao;
+  unsigned long numeroAtivacoes;
+  
    // ... (outros campos serão adicionados mais tarde)
 } task_t ;
 
