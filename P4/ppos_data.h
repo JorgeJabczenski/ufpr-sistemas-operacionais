@@ -1,7 +1,4 @@
-// PingPongOS - PingPong Operating System
-// Prof. Carlos A. Maziero, DINF UFPR
-// Versão 1.4 -- Janeiro de 2022
-
+// GRR20190372 Jorge Lucas Vicilli Jabczenski
 // Estruturas de dados internas do sistema operacional
 
 #ifndef __PPOS_DATA__
