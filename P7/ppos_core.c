@@ -10,6 +10,8 @@
 #include "ppos.h"
 #include "ppos_data.h"
 
+// VARIAVEIS GLOBAIS
+
 int id;
 task_t *mainTask;
 task_t *taskAtual;
@@ -25,7 +27,9 @@ struct itimerval timer;
 
 long long int ticksTotais = 0;
 
-//------------------------------------------------------------------------- funcoes auxiliares
+//------------------------------------------------------------------------- 
+// Funcoes Auxiliares
+
 void debugPrint(char *msg)
 {
 #ifdef DEBUG
@@ -52,15 +56,15 @@ void printTask(task_t *task)
     printf("activations %lu \n", task->numeroAtivacoes);
 }
 
-//______________________________________________________________ funcoes prioridades
+//______________________________________________________________ 
+// Prioridades
 
 void aumentarPrioridadeDinamica(task_t *task)
 {
     task->prioridadeDinamica += AGING;
+
     if (task->prioridadeDinamica < PRIORIDADE_MAXIMA)
-    {
         task->prioridadeDinamica = PRIORIDADE_MAXIMA;
-    }
 }
 
 void task_setprio(task_t *task, int prio)
@@ -86,9 +90,8 @@ void task_setprio(task_t *task, int prio)
 int task_getprio(task_t *task)
 {
     if (task == NULL)
-    {
         return taskAtual->prioridadeEstatica;
-    }
+
     return task->prioridadeEstatica;
 }
 
@@ -166,17 +169,13 @@ void task_yield()
 // tratador do sinal
 void tratador(int signum)
 {
-    debugPrint("tratando sinal de tempo\n");
-    // Aumenta o número de ticks
     ticksTotais++;
     taskAtual->tempoDeProcessador++;
-    if (taskAtual->tarefaUsuario == SIM)
+    if (taskAtual->tarefaUsuario == TRUE)
     {
         taskAtual->quantidadeTicks--;
         if (taskAtual->quantidadeTicks == 0)
-        {
             task_yield();
-        }
     }
 }
 
@@ -272,24 +271,10 @@ int task_create(task_t *task, void (*start_routine)(void *), void *arg)
     task->tempoExecucao = 0;
     task->tempoInicial = systime();
 
-    // if (!strcmp(arg, "Dispatcher")){
-    //     task->tarefaUsuario = NAO;
-    // } else {
-    //     task->tarefaUsuario = SIM;
-    // }
-
     if (task == dispatcher)
-    {
-        task->tarefaUsuario = NAO;
-    }
+        task->tarefaUsuario = FALSE;
     else
-    {
-        task->tarefaUsuario = SIM;
-    }
-
-#ifdef DEBUG
-    printf("task_create: %d\n", task->id);
-#endif
+        task->tarefaUsuario = TRUE;
 
     debugPrint("Adicionado o elemento na fila\n");
     queue_append((queue_t **)&filaTasks, (queue_t *)task);
@@ -300,11 +285,6 @@ int task_create(task_t *task, void (*start_routine)(void *), void *arg)
 
 int task_switch(task_t *task)
 {
-
-#ifdef DEBUG
-    printf("task_switch: trocando contexto %d -> %d\n", taskAtual->id, task->id);
-#endif
-
     task_t *taskAux = taskAtual;
     taskAtual = task;
     swapcontext(&(taskAux->context), &(task->context));

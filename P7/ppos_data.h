@@ -5,17 +5,31 @@
 #define __PPOS_DATA__
 
 #include <ucontext.h>		// biblioteca POSIX de trocas de contexto
-#include "queue.h"
+#include "queue.h"      // biblioteca genérica de filas
 
-#define STACKSIZE 64 * 1024 /* tamanho de pilha das threads */
+#define STACKSIZE 64 * 1024 // tamanho de pilha das threads 
 
+// Status possiveis de tarefas
 #define PRONTA    0
 #define TERMINADA 1
 #define SUSPENSA  2
+#define RODANDO   3
 
-#define AGING    -1
+#define READY     0
+#define FINISHED  1
+#define SUSPENDED 2
+#define RUNNING   3
+//---------------------------
+
+// Prioridades
+#define AGING    -1              // Constante de aging
 #define PRIORIDADE_MINIMA  20
 #define PRIORIDADE_MAXIMA -20
+
+#define AGING              -1    // Constante de aging
+#define MAX_PRIORITY       20
+#define MIN_PRIORITY      -20
+//---------------------------
 
 #define PRIMEIRO_DISPARO_US 1000   // primeiro disparo, em micro-segundos
 #define PRIMEIRO_DISPARO_S     0   // primeiro disparo, em segundos
@@ -26,6 +40,14 @@
 
 #define SIM 1
 #define NAO 0
+
+#define TRUE  1
+#define True  1
+#define true  1
+
+#define FALSE 0
+#define False 0
+#define false 0
 
 
 // Estrutura que define um Task Control Block (TCB)
@@ -74,4 +96,3 @@ typedef struct
 } mqueue_t ;
 
 #endif
-
