@@ -57,6 +57,18 @@ void printTask(task_t *task)
     printf("activations %lu \n", task->numeroAtivacoes);
 }
 
+void print_elem(void *ptr)
+{
+   task_t *elem = ptr;
+
+   if (!elem)
+      return;
+
+   elem->prev ? printf("%d", elem->prev->id) : printf("*");
+   printf("<%d>", elem->id);
+   elem->next ? printf("%d", elem->next->id) : printf("*");
+}
+
 //______________________________________________________________
 // Prioridades
 
@@ -107,7 +119,7 @@ task_t *scheduler()
     filaTasks = filaTasks->next;
     while (primeiraTask != filaTasks)
     {
-        if (filaTasks->prioridadeDinamica < proxTask->prioridadeDinamica && proxTask->status == PRONTA)
+        if (filaTasks->prioridadeDinamica < proxTask->prioridadeDinamica  && proxTask->status == PRONTA)
         {
             // Caso a tarefa nao seja escolhida, aumenta sua prioridade e salva a nova task escolhida
             aumentarPrioridadeDinamica(proxTask);
@@ -137,6 +149,9 @@ void dispatcherBody()
 
     while (queue_size((queue_t *)filaTasks) > 0)
     {
+        #ifdef DEBUG
+        queue_print("FILA: ", (queue_t*) filaTasks, print_elem);
+        #endif
         taskAtual->numeroAtivacoes++;
         task_t *proximaTask = scheduler();
         if (proximaTask != NULL)
@@ -224,20 +239,14 @@ void ppos_init()
     mainTask->context.uc_link = 0;
 
     mainTask->id = id++;
-    mainTask->prev = NULL;
-    mainTask->next = NULL;
-    mainTask->quantidadeTicks = QTD_TICKS;
+    mainTask->quantidadeTicks = 0;
     mainTask->status = PRONTA;
+    mainTask->tarefaUsuario = TRUE;
     mainTask->prioridadeEstatica = 0;
     mainTask->prioridadeDinamica = 0;
     mainTask->numeroAtivacoes = 0;
     mainTask->tempoExecucao = 0;
     mainTask->tempoInicial = systime();
-
-    if (mainTask == dispatcher)
-        mainTask->tarefaUsuario = FALSE;
-    else
-        mainTask->tarefaUsuario = TRUE;
 
     queue_append((queue_t **)&filaTasks, (queue_t *)mainTask);
 
@@ -250,6 +259,8 @@ void ppos_init()
     configuraTimer();
 
     debugPrint("Fim ppos_init\n");
+
+    task_yield();
 }
 
 int task_create(task_t *task, void (*start_routine)(void *), void *arg)
@@ -273,7 +284,7 @@ int task_create(task_t *task, void (*start_routine)(void *), void *arg)
     task->status = PRONTA;
     task->prioridadeEstatica = 0;
     task->prioridadeDinamica = 0;
-    task->quantidadeTicks = QTD_TICKS;
+    task->quantidadeTicks = 0;
     task->numeroAtivacoes = 0;
     task->tempoExecucao = 0;
     task->tempoInicial = systime();
