@@ -119,7 +119,7 @@ task_t *scheduler()
     filaTasks = filaTasks->next;
     while (primeiraTask != filaTasks)
     {
-        if (filaTasks->prioridadeDinamica < proxTask->prioridadeDinamica  && proxTask->status == PRONTA)
+        if (filaTasks->prioridadeDinamica < proxTask->prioridadeDinamica)
         {
             // Caso a tarefa nao seja escolhida, aumenta sua prioridade e salva a nova task escolhida
             aumentarPrioridadeDinamica(proxTask);
