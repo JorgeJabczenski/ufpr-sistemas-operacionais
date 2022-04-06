@@ -18,6 +18,7 @@ task_t *taskAtual;
 task_t *dispatcher;
 
 task_t *filaTasks;
+// task_t *filaTasksSuspensas;
 
 // estrutura que define um tratador de sinal (deve ser global ou static)
 struct sigaction action;
@@ -27,7 +28,7 @@ struct itimerval timer;
 
 long long int ticksTotais = 0;
 
-//------------------------------------------------------------------------- 
+//-------------------------------------------------------------------------
 // Funcoes Auxiliares
 
 void debugPrint(char *msg)
@@ -56,7 +57,7 @@ void printTask(task_t *task)
     printf("activations %lu \n", task->numeroAtivacoes);
 }
 
-//______________________________________________________________ 
+//______________________________________________________________
 // Prioridades
 
 void aumentarPrioridadeDinamica(task_t *task)
@@ -106,7 +107,7 @@ task_t *scheduler()
     filaTasks = filaTasks->next;
     while (primeiraTask != filaTasks)
     {
-        if (filaTasks->prioridadeDinamica < proxTask->prioridadeDinamica)
+        if (filaTasks->prioridadeDinamica < proxTask->prioridadeDinamica && proxTask->status == PRONTA)
         {
             // Caso a tarefa nao seja escolhida, aumenta sua prioridade e salva a nova task escolhida
             aumentarPrioridadeDinamica(proxTask);
@@ -116,7 +117,6 @@ task_t *scheduler()
         {
             aumentarPrioridadeDinamica(filaTasks);
         }
-
         filaTasks = filaTasks->next;
     }
 
@@ -133,7 +133,6 @@ task_t *scheduler()
 
 void dispatcherBody()
 {
-    
     debugPrint("inicio dispatcher\n");
 
     while (queue_size((queue_t *)filaTasks) > 0)
@@ -142,6 +141,7 @@ void dispatcherBody()
         task_t *proximaTask = scheduler();
         if (proximaTask != NULL)
         {
+            // printf("TASK ID: %d\n", proximaTask->id);
             task_switch(proximaTask);
             switch (proximaTask->status)
             {
@@ -157,11 +157,6 @@ void dispatcherBody()
 
     debugPrint("Fim da fila\n");
     task_exit(0);
-}
-
-void task_yield()
-{
-    task_switch(dispatcher);
 }
 
 //------------------------------------------------------------------------- coisas de tempo
@@ -231,8 +226,20 @@ void ppos_init()
     mainTask->id = id++;
     mainTask->prev = NULL;
     mainTask->next = NULL;
-
     mainTask->quantidadeTicks = QTD_TICKS;
+    mainTask->status = PRONTA;
+    mainTask->prioridadeEstatica = 0;
+    mainTask->prioridadeDinamica = 0;
+    mainTask->numeroAtivacoes = 0;
+    mainTask->tempoExecucao = 0;
+    mainTask->tempoInicial = systime();
+
+    if (mainTask == dispatcher)
+        mainTask->tarefaUsuario = FALSE;
+    else
+        mainTask->tarefaUsuario = TRUE;
+
+    queue_append((queue_t **)&filaTasks, (queue_t *)mainTask);
 
     taskAtual = mainTask;
 
@@ -294,20 +301,18 @@ int task_switch(task_t *task)
 
 void task_exit(int exit_code)
 {
+    taskAtual->tempoFinal = systime();
+    taskAtual->tempoExecucao = taskAtual->tempoFinal - taskAtual->tempoInicial;
+    taskAtual->status = TERMINADA;
+    printTask(taskAtual);
+    // task_switch(dispatcher);
+
     if (taskAtual == dispatcher)
     {
-        taskAtual->tempoFinal = systime();
-        taskAtual->tempoExecucao = taskAtual->tempoFinal - taskAtual->tempoInicial;
-        taskAtual->status = TERMINADA;
-        printTask(taskAtual);
         task_switch(mainTask);
     }
     else
     {
-        taskAtual->tempoFinal = systime();
-        taskAtual->tempoExecucao = taskAtual->tempoFinal - taskAtual->tempoInicial;
-        taskAtual->status = TERMINADA;
-        printTask(taskAtual);
         task_switch(dispatcher);
     }
 }
@@ -319,4 +324,9 @@ int task_id()
 #endif
 
     return taskAtual->id;
+}
+
+void task_yield()
+{
+    task_switch(dispatcher);
 }
