@@ -141,14 +141,15 @@ void task_resume(task_t *task, task_t **queue)
 
 void acordaTasks()
 {
+    debugPrint("AcordaTasks\n");
     task_t *task = filaSleep;
     int tamanhoFilaSleep = queue_size((queue_t *)filaSleep);
 
     for (int i = 0; i < tamanhoFilaSleep; i++)
-    {   
-        printf("Hora Atual: %ud\n", systime());
-        if (task->horaDeAcordar >= systime())
+    {
+        if (task->horaDeAcordar <= systime())
         {
+            printf("Acordando TASK %d\n", task->id);
             task = task->next;
             task_resume(task->prev, &filaSleep);
         }
@@ -167,30 +168,34 @@ task_t *scheduler()
     task_t *proxTask = filaTasks;
     task_t *primeiraTask = filaTasks;
 
-    filaTasks = filaTasks->next;
-    while (primeiraTask != filaTasks)
+    if (filaTasks != NULL)
     {
-        if (filaTasks->prioridadeDinamica < proxTask->prioridadeDinamica)
-        {
-            // Caso a tarefa nao seja escolhida, aumenta sua prioridade e salva a nova task escolhida
-            aumentarPrioridadeDinamica(proxTask);
-            proxTask = filaTasks;
-        }
-        else
-        {
-            aumentarPrioridadeDinamica(filaTasks);
-        }
+
         filaTasks = filaTasks->next;
+        while (primeiraTask != filaTasks)
+        {
+            if (filaTasks->prioridadeDinamica < proxTask->prioridadeDinamica)
+            {
+                // Caso a tarefa nao seja escolhida, aumenta sua prioridade e salva a nova task escolhida
+                aumentarPrioridadeDinamica(proxTask);
+                proxTask = filaTasks;
+            }
+            else
+            {
+                aumentarPrioridadeDinamica(filaTasks);
+            }
+            filaTasks = filaTasks->next;
+        }
+
+        // Retorna a prioridade dinamica da task escolhida para a original
+        proxTask->prioridadeDinamica = proxTask->prioridadeEstatica;
+
+        queue_remove((queue_t **)&filaTasks, (queue_t *)proxTask);
+
+        // debugPrint("fim sched\n");
+        proxTask->quantidadeTicks = QTD_TICKS;
+        proxTask->numeroAtivacoes++;
     }
-
-    // Retorna a prioridade dinamica da task escolhida para a original
-    proxTask->prioridadeDinamica = proxTask->prioridadeEstatica;
-
-    queue_remove((queue_t **)&filaTasks, (queue_t *)proxTask);
-
-    // debugPrint("fim sched\n");
-    proxTask->quantidadeTicks = QTD_TICKS;
-    proxTask->numeroAtivacoes++;
     return proxTask;
 }
 
@@ -198,19 +203,19 @@ void dispatcherBody()
 {
     debugPrint("inicio dispatcher\n");
 
-    while (queue_size((queue_t *)filaTasks) > 0)
+    while (queue_size((queue_t *)filaTasks) > 0 || queue_size((queue_t *)filaSleep) > 0)
     {
 #ifdef DEBUGFILA
-        printf("Tamanho fila:%d\n", queue_size((queue_t *)filaTasks));
-        queue_print("FILA PRONTO ", (queue_t *)filaTasks, print_elem);
-        queue_print("FILA SLEEP  ", (queue_t *)filaSleep, print_elem);
+        printf("Tamanho fila pronto :%d\n", queue_size((queue_t *)filaTasks));
+        printf("Tamanho fila sleeep :%d\n", queue_size((queue_t *)filaSleep));
+        // queue_print("FILA PRONTO ", (queue_t *)filaTasks, print_elem);
+        // queue_print("FILA SLEEP  ", (queue_t *)filaSleep, print_elem);
 #endif
         taskAtual->numeroAtivacoes++;
         acordaTasks();
         task_t *proximaTask = scheduler();
         if (proximaTask != NULL)
         {
-            // printf("TASK ID: %d\n", proximaTask->id);
             task_switch(proximaTask);
             switch (proximaTask->status)
             {
@@ -219,9 +224,6 @@ void dispatcherBody()
                 break;
             case TERMINADA:
                 free(proximaTask->context.uc_stack.ss_sp);
-                break;
-            case SUSPENSA:
-                printf("socorro estou presa\n");
                 break;
             }
         }
