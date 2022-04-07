@@ -67,6 +67,9 @@ typedef struct task_t
   unsigned long tempoDeProcessador;
   unsigned long tempoExecucao;
   unsigned long numeroAtivacoes;
+  struct task_t *filaJoin;            // fila de tarefas que deram join nessa task
+  int exitCode;
+
   
    // ... (outros campos serão adicionados mais tarde)
 } task_t ;

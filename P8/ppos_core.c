@@ -28,7 +28,7 @@ struct itimerval timer;
 
 long long int ticksTotais = 0;
 
-//-------------------------------------------------------------------------
+// ______________________________________________________________
 // Funcoes Auxiliares
 
 void debugPrint(char *msg)
@@ -59,14 +59,14 @@ void printTask(task_t *task)
 
 void print_elem(void *ptr)
 {
-   task_t *elem = ptr;
+    task_t *elem = ptr;
 
-   if (!elem)
-      return;
+    if (!elem)
+        return;
 
-   elem->prev ? printf("%d", elem->prev->id) : printf("*");
-   printf("<%d>", elem->id);
-   elem->next ? printf("%d", elem->next->id) : printf("*");
+    elem->prev ? printf("%d", elem->prev->id) : printf("*");
+    printf("<%d>", elem->id);
+    elem->next ? printf("%d", elem->next->id) : printf("*");
 }
 
 //______________________________________________________________
@@ -106,6 +106,33 @@ int task_getprio(task_t *task)
         return taskAtual->prioridadeEstatica;
 
     return task->prioridadeEstatica;
+}
+
+int task_join(task_t *task)
+{
+    if (task == NULL)
+        return -1;
+
+    if (task->status == TERMINADA)
+        return task->exitCode;
+
+    task_suspend(&task->filaJoin);
+
+    return task->exitCode;
+}
+
+void task_suspend(task_t **queue)
+{
+    taskAtual->status = SUSPENSA;
+    queue_append((queue_t **)queue, (queue_t *)taskAtual);
+    task_yield();
+}
+
+void task_resume(task_t *task, task_t **queue)
+{
+    queue_remove((queue_t **)queue, (queue_t *)task);
+    taskAtual->status = PRONTA;
+    queue_append((queue_t **)&filaTasks, (queue_t *)task);
 }
 
 //______________________________________________________________ sched e dispatch
@@ -149,9 +176,9 @@ void dispatcherBody()
 
     while (queue_size((queue_t *)filaTasks) > 0)
     {
-        #ifdef DEBUG
-        queue_print("FILA: ", (queue_t*) filaTasks, print_elem);
-        #endif
+#ifdef DEBUGFILA
+        queue_print("FILA: ", (queue_t *)filaTasks, print_elem);
+#endif
         taskAtual->numeroAtivacoes++;
         task_t *proximaTask = scheduler();
         if (proximaTask != NULL)
@@ -261,7 +288,7 @@ void ppos_init()
     debugPrint("Fim ppos_init\n");
 
     task_yield();
-}
+} 
 
 int task_create(task_t *task, void (*start_routine)(void *), void *arg)
 {
@@ -287,6 +314,7 @@ int task_create(task_t *task, void (*start_routine)(void *), void *arg)
     task->quantidadeTicks = 0;
     task->numeroAtivacoes = 0;
     task->tempoExecucao = 0;
+    task->filaJoin = NULL;
     task->tempoInicial = systime();
 
     if (task == dispatcher)
@@ -312,19 +340,23 @@ int task_switch(task_t *task)
 
 void task_exit(int exit_code)
 {
+    taskAtual->exitCode = exit_code;
     taskAtual->tempoFinal = systime();
     taskAtual->tempoExecucao = taskAtual->tempoFinal - taskAtual->tempoInicial;
-    taskAtual->status = TERMINADA;
     printTask(taskAtual);
-    // task_switch(dispatcher);
+
+    for (int i = 0; i < queue_size((queue_t*) taskAtual->filaJoin); i++){
+        task_resume((task_t*) taskAtual->filaJoin,(task_t**)&taskAtual->filaJoin);
+    }
 
     if (taskAtual == dispatcher)
     {
-        task_switch(mainTask);
+        // task_switch(mainTask); // dar exit?
     }
     else
     {
-        task_switch(dispatcher);
+        taskAtual->status = TERMINADA;
+        task_yield();
     }
 }
 
