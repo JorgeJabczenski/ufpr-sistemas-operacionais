@@ -53,22 +53,24 @@
 // Estrutura que define um Task Control Block (TCB)
 typedef struct task_t
 {
-  struct task_t *prev, *next ;		// ponteiros para usar em filas
-  int id ;			                	// identificador da tarefa
-  ucontext_t context ;			      // contexto armazenado da tarefa
-  short status ;			            // pronta, rodando, suspensa, ...
-  short preemptable ;			        // pode ser preemptada?
-  int prioridadeEstatica;         // prioridade da task
-  int prioridadeDinamica;         // prioridade da task
-  int quantidadeTicks;            // quantidade de ciclos que uma tarefa tem
-  int tarefaUsuario;              // flag para indicar se é uma tarefa de usuario
-  unsigned int tempoInicial;
-  unsigned int tempoFinal;
-  unsigned long tempoDeProcessador;
-  unsigned long tempoExecucao;
-  unsigned long numeroAtivacoes;
-  struct task_t *filaJoin;            // fila de tarefas que deram join nessa task
-  int exitCode;
+  struct task_t *prev, *next ;	  	// ponteiros para usar em filas
+  int id ;			                  	// identificador da tarefa
+  ucontext_t context ;			        // contexto armazenado da tarefa
+  short status ;			              // pronta, rodando, suspensa, ...
+  short preemptable ;			          // pode ser preemptada?
+  int prioridadeEstatica;           // prioridade da task
+  int prioridadeDinamica;           // prioridade da task
+  int quantidadeTicks;              // quantidade de ciclos que uma tarefa tem
+  int tarefaUsuario;                // flag para indicar se é uma tarefa de usuario
+  unsigned int tempoInicial;        // nascimento :)
+  unsigned int tempoFinal;          // mortimento :(
+  unsigned long tempoDeProcessador; // tempo de processamento
+  unsigned long tempoExecucao;      // tempo fim - tempo inicio (tempo usuario)
+  unsigned long numeroAtivacoes;    // número de vezes que a task foi executada
+  struct task_t *filaJoin;          // fila de tarefas que deram join nessa task
+  int exitCode;                     // codigo de saida da task
+  unsigned long horaDeAcordar;      // tempo que a task é botada pra dormir em ms
+  
 
   
    // ... (outros campos serão adicionados mais tarde)

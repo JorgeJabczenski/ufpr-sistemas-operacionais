@@ -18,7 +18,7 @@ task_t *taskAtual;
 task_t *dispatcher;
 
 task_t *filaTasks;
-// task_t *filaTasksSuspensas;
+task_t *filaSleep;
 
 // estrutura que define um tratador de sinal (deve ser global ou static)
 struct sigaction action;
@@ -108,6 +108,9 @@ int task_getprio(task_t *task)
     return task->prioridadeEstatica;
 }
 
+//______________________________________________________________
+// Join Suspend Remove
+
 int task_join(task_t *task)
 {
     if (task == NULL)
@@ -123,6 +126,7 @@ int task_join(task_t *task)
 
 void task_suspend(task_t **queue)
 {
+    debugPrint("Task Suspend\n");
     taskAtual->status = SUSPENSA;
     queue_append((queue_t **)queue, (queue_t *)taskAtual);
     task_yield();
@@ -131,8 +135,28 @@ void task_suspend(task_t **queue)
 void task_resume(task_t *task, task_t **queue)
 {
     queue_remove((queue_t **)queue, (queue_t *)task);
-    taskAtual->status = PRONTA;
+    task->status = PRONTA;
     queue_append((queue_t **)&filaTasks, (queue_t *)task);
+}
+
+void acordaTasks()
+{
+    task_t *task = filaSleep;
+    int tamanhoFilaSleep = queue_size((queue_t *)filaSleep);
+
+    for (int i = 0; i < tamanhoFilaSleep; i++)
+    {   
+        printf("Hora Atual: %ud\n", systime());
+        if (task->horaDeAcordar >= systime())
+        {
+            task = task->next;
+            task_resume(task->prev, &filaSleep);
+        }
+        else
+        {
+            task = task->next;
+        }
+    }
 }
 
 //______________________________________________________________ sched e dispatch
@@ -177,9 +201,12 @@ void dispatcherBody()
     while (queue_size((queue_t *)filaTasks) > 0)
     {
 #ifdef DEBUGFILA
-        queue_print("FILA: ", (queue_t *)filaTasks, print_elem);
+        printf("Tamanho fila:%d\n", queue_size((queue_t *)filaTasks));
+        queue_print("FILA PRONTO ", (queue_t *)filaTasks, print_elem);
+        queue_print("FILA SLEEP  ", (queue_t *)filaSleep, print_elem);
 #endif
         taskAtual->numeroAtivacoes++;
+        acordaTasks();
         task_t *proximaTask = scheduler();
         if (proximaTask != NULL)
         {
@@ -193,6 +220,9 @@ void dispatcherBody()
             case TERMINADA:
                 free(proximaTask->context.uc_stack.ss_sp);
                 break;
+            case SUSPENSA:
+                printf("socorro estou presa\n");
+                break;
             }
         }
     }
@@ -203,7 +233,6 @@ void dispatcherBody()
 
 //------------------------------------------------------------------------- coisas de tempo
 
-// tratador do sinal
 void tratador(int signum)
 {
     ticksTotais++;
@@ -244,6 +273,12 @@ void configuraTimer()
 unsigned int systime()
 {
     return ticksTotais;
+}
+
+void task_sleep(int t)
+{
+    taskAtual->horaDeAcordar = systime() + t;
+    task_suspend(&filaSleep);
 }
 
 //------------------------------------------------------------------------- coisas de task
@@ -288,7 +323,7 @@ void ppos_init()
     debugPrint("Fim ppos_init\n");
 
     task_yield();
-} 
+}
 
 int task_create(task_t *task, void (*start_routine)(void *), void *arg)
 {
@@ -345,8 +380,9 @@ void task_exit(int exit_code)
     taskAtual->tempoExecucao = taskAtual->tempoFinal - taskAtual->tempoInicial;
     printTask(taskAtual);
 
-    for (int i = 0; i < queue_size((queue_t*) taskAtual->filaJoin); i++){
-        task_resume((task_t*) taskAtual->filaJoin,(task_t**)&taskAtual->filaJoin);
+    for (int i = 0; i < queue_size((queue_t *)taskAtual->filaJoin); i++)
+    {
+        task_resume((task_t *)taskAtual->filaJoin, (task_t **)&taskAtual->filaJoin);
     }
 
     if (taskAtual == dispatcher)
