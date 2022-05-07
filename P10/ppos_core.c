@@ -411,6 +411,20 @@ void task_yield()
     task_switch(dispatcher);
 }
 
+int sum  = 0 ;
+int lock = 0 ;
+ 
+void enter_cs (int *lock)
+{
+  while (__sync_fetch_and_or (lock, 1)) ;
+}
+ 
+void leave_cs (int *lock)
+{
+  (*lock) = 0 ;
+}
+
+
 int sem_create(semaphore_t *s, int value)
 {
     if (s == NULL) return -1;
@@ -427,7 +441,9 @@ int sem_down(semaphore_t *s)
 {
     if (s == NULL  || s->valido == 0) return -1;
 
+    enter_cs(&lock);
     s->contador--;
+    leave_cs(&lock);
     if (s->contador < 0)
     {
         task_suspend((task_t**)&s->fila);
@@ -439,8 +455,10 @@ int sem_down(semaphore_t *s)
 int sem_up(semaphore_t *s)
 {
     if (s == NULL  || s->valido == 0) return -1;
-
+    
+    enter_cs(&lock);
     s->contador++;
+    leave_cs(&lock);
     if (s->contador <= 0)
     {
         task_resume((task_t*)s->fila, (task_t**)&s->fila);
