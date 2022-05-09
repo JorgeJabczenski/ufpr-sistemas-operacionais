@@ -18,7 +18,9 @@ task_t *taskAtual;
 task_t *dispatcher;
 
 task_t *filaTasks;
-// task_t *filaTasksSuspensas;
+task_t *filaSleep;
+
+int quantidadeTasks = 0;
 
 // estrutura que define um tratador de sinal (deve ser global ou static)
 struct sigaction action;
@@ -108,6 +110,9 @@ int task_getprio(task_t *task)
     return task->prioridadeEstatica;
 }
 
+//______________________________________________________________
+// Join Suspend Remove
+
 int task_join(task_t *task)
 {
     if (task == NULL)
@@ -123,6 +128,7 @@ int task_join(task_t *task)
 
 void task_suspend(task_t **queue)
 {
+    debugPrint("Task Suspend\n");
     taskAtual->status = SUSPENSA;
     queue_append((queue_t **)queue, (queue_t *)taskAtual);
     task_yield();
@@ -135,6 +141,26 @@ void task_resume(task_t *task, task_t **queue)
     queue_append((queue_t **)&filaTasks, (queue_t *)task);
 }
 
+void acordaTasks()
+{
+    debugPrint("AcordaTasks\n");
+    task_t *task = filaSleep;
+    int tamanhoFilaSleep = queue_size((queue_t *)filaSleep);
+
+    for (int i = 0; i < tamanhoFilaSleep; i++)
+    {
+        if (task->horaDeAcordar <= systime())
+        {
+            task = task->next;
+            task_resume(task->prev, &filaSleep);
+        }
+        else
+        {
+            task = task->next;
+        }
+    }
+}
+
 //______________________________________________________________ sched e dispatch
 task_t *scheduler()
 {
@@ -143,30 +169,34 @@ task_t *scheduler()
     task_t *proxTask = filaTasks;
     task_t *primeiraTask = filaTasks;
 
-    filaTasks = filaTasks->next;
-    while (primeiraTask != filaTasks)
+    if (filaTasks != NULL)
     {
-        if (filaTasks->prioridadeDinamica < proxTask->prioridadeDinamica)
-        {
-            // Caso a tarefa nao seja escolhida, aumenta sua prioridade e salva a nova task escolhida
-            aumentarPrioridadeDinamica(proxTask);
-            proxTask = filaTasks;
-        }
-        else
-        {
-            aumentarPrioridadeDinamica(filaTasks);
-        }
+
         filaTasks = filaTasks->next;
+        while (primeiraTask != filaTasks)
+        {
+            if (filaTasks->prioridadeDinamica < proxTask->prioridadeDinamica)
+            {
+                // Caso a tarefa nao seja escolhida, aumenta sua prioridade e salva a nova task escolhida
+                aumentarPrioridadeDinamica(proxTask);
+                proxTask = filaTasks;
+            }
+            else
+            {
+                aumentarPrioridadeDinamica(filaTasks);
+            }
+            filaTasks = filaTasks->next;
+        }
+
+        // Retorna a prioridade dinamica da task escolhida para a original
+        proxTask->prioridadeDinamica = proxTask->prioridadeEstatica;
+
+        queue_remove((queue_t **)&filaTasks, (queue_t *)proxTask);
+
+        // debugPrint("fim sched\n");
+        proxTask->quantidadeTicks = QTD_TICKS;
+        proxTask->numeroAtivacoes++;
     }
-
-    // Retorna a prioridade dinamica da task escolhida para a original
-    proxTask->prioridadeDinamica = proxTask->prioridadeEstatica;
-
-    queue_remove((queue_t **)&filaTasks, (queue_t *)proxTask);
-
-    // debugPrint("fim sched\n");
-    proxTask->quantidadeTicks = QTD_TICKS;
-    proxTask->numeroAtivacoes++;
     return proxTask;
 }
 
@@ -174,16 +204,14 @@ void dispatcherBody()
 {
     debugPrint("inicio dispatcher\n");
 
-    while (queue_size((queue_t *)filaTasks) > 0)
+    // while (queue_size((queue_t *)filaTasks) > 0 || queue_size((queue_t *)filaSleep) > 0)
+    while(quantidadeTasks)
     {
-#ifdef DEBUGFILA
-        queue_print("FILA: ", (queue_t *)filaTasks, print_elem);
-#endif
         taskAtual->numeroAtivacoes++;
+        acordaTasks();
         task_t *proximaTask = scheduler();
         if (proximaTask != NULL)
         {
-            // printf("TASK ID: %d\n", proximaTask->id);
             task_switch(proximaTask);
             switch (proximaTask->status)
             {
@@ -191,6 +219,7 @@ void dispatcherBody()
                 queue_append((queue_t **)&filaTasks, (queue_t *)proximaTask);
                 break;
             case TERMINADA:
+                quantidadeTasks--;
                 free(proximaTask->context.uc_stack.ss_sp);
                 break;
             }
@@ -203,7 +232,6 @@ void dispatcherBody()
 
 //------------------------------------------------------------------------- coisas de tempo
 
-// tratador do sinal
 void tratador(int signum)
 {
     ticksTotais++;
@@ -244,6 +272,12 @@ void configuraTimer()
 unsigned int systime()
 {
     return ticksTotais;
+}
+
+void task_sleep(int t)
+{
+    taskAtual->horaDeAcordar = systime() + t;
+    task_suspend(&filaSleep);
 }
 
 //------------------------------------------------------------------------- coisas de task
@@ -288,7 +322,7 @@ void ppos_init()
     debugPrint("Fim ppos_init\n");
 
     task_yield();
-} 
+}
 
 int task_create(task_t *task, void (*start_routine)(void *), void *arg)
 {
@@ -316,6 +350,8 @@ int task_create(task_t *task, void (*start_routine)(void *), void *arg)
     task->tempoExecucao = 0;
     task->filaJoin = NULL;
     task->tempoInicial = systime();
+
+    quantidadeTasks++;
 
     if (task == dispatcher)
         task->tarefaUsuario = FALSE;
@@ -345,8 +381,9 @@ void task_exit(int exit_code)
     taskAtual->tempoExecucao = taskAtual->tempoFinal - taskAtual->tempoInicial;
     printTask(taskAtual);
 
-    for (int i = 0; i < queue_size((queue_t*) taskAtual->filaJoin); i++){
-        task_resume((task_t*) taskAtual->filaJoin,(task_t**)&taskAtual->filaJoin);
+    for (int i = 0; i < queue_size((queue_t *)taskAtual->filaJoin); i++)
+    {
+        task_resume((task_t *)taskAtual->filaJoin, (task_t **)&taskAtual->filaJoin);
     }
 
     if (taskAtual == dispatcher)
@@ -372,4 +409,75 @@ int task_id()
 void task_yield()
 {
     task_switch(dispatcher);
+}
+
+int sum  = 0 ;
+int lock = 0 ;
+ 
+void enter_cs (int *lock)
+{
+  while (__sync_fetch_and_or (lock, 1)) ;
+}
+ 
+void leave_cs (int *lock)
+{
+  (*lock) = 0 ;
+}
+
+
+int sem_create(semaphore_t *s, int value)
+{
+    if (s == NULL) return -1;
+
+    s->contador = value;
+    s->fila = NULL;
+    s->valido = 1;
+
+    return 0;
+}
+
+// requisita o semáforo
+int sem_down(semaphore_t *s)
+{
+    if (s == NULL  || s->valido == 0) return -1;
+
+    enter_cs(&lock);
+    s->contador--;
+    leave_cs(&lock);
+    if (s->contador < 0)
+    {
+        task_suspend((task_t**)&s->fila);
+    }
+    return 0;
+}
+
+// libera o semáforo
+int sem_up(semaphore_t *s)
+{
+    if (s == NULL  || s->valido == 0) return -1;
+    
+    enter_cs(&lock);
+    s->contador++;
+    leave_cs(&lock);
+    if (s->contador <= 0)
+    {
+        task_resume((task_t*)s->fila, (task_t**)&s->fila);
+    }
+    return 0;
+}
+
+// destroi o semáforo, liberando as tarefas bloqueadas
+int sem_destroy(semaphore_t *s)
+{
+    if (s == NULL  || s->valido == 0) return -1;
+
+    while(queue_size(s->fila) > 0)
+    {
+        task_resume((task_t*)s->fila, (task_t**)&s->fila);
+    }
+
+    s->contador = 0;
+    s->valido = 0;
+
+    return 0;
 }

@@ -149,7 +149,6 @@ void acordaTasks()
     {
         if (task->horaDeAcordar <= systime())
         {
-            printf("Acordando TASK %d\n", task->id);
             task = task->next;
             task_resume(task->prev, &filaSleep);
         }
